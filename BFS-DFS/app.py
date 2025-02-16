@@ -11,11 +11,14 @@ class GraphApp:
         self.nodes = dict()
         self.edges = list()
         self.selected_node = None
-        self.mode = 'N'
+        self.mode = 'N' # N - add node, E - add edge
+        self.start_coords = (None, None)
+        self.line = None
 
         self.canvas.bind("<Button-1>", self.left_click)
         self.canvas.bind("<B1-Motion>", self.move_mouse)
         self.canvas.bind("<Button-3>", self.right_click)
+        self.canvas.bind("<Double-Button-1>", self.double_click)
 
     def check_node(self, x, y):
         overlapping = self.canvas.find_overlapping(x - 1, y - 1, x + 1, y + 1)
@@ -24,9 +27,10 @@ class GraphApp:
         return None
 
     def left_click(self, event):
+        self.selected_node = None
         x, y = event.x, event.y
-        if self.mode == 'N':
-            self.add_node(x, y)
+        self.mode = 'N'
+        self.add_node(x, y)
 
     def move_mouse(self, event):
         x, y = event.x, event.y
@@ -37,11 +41,21 @@ class GraphApp:
             self.selected_node = None
         elif self.mode == 'N':
             self.move_node(x, y)
+        elif self.mode == 'E':
+            self.add_edge(x, y)
 
     def right_click(self, event):
         x, y = event.x, event.y
         if self.mode == 'N':
             self.delete_node(x, y)
+
+    def double_click(self, event):
+        x, y = event.x, event.y
+        self.selected_node = self.check_node(x, y)
+        if self.selected_node is not None:
+            self.mode = 'E'
+            self.start_coords = (x, y)
+            print(self.selected_node)
 
     def add_node(self, x, y):
         R = self.Radius
@@ -71,7 +85,14 @@ class GraphApp:
         if node in self.nodes:
             self.canvas.delete(node)
             self.nodes.pop(node)
-
+    
+    def add_edge(self, x, y):
+        # x_c, y_c = self.canvas.coords(self.selected_node)
+        if self.line is not None:
+            self.canvas.delete(self.line)
+            self.line = None
+        self.line = self.canvas.create_line(self.start_coords[0], self.start_coords[1], x, y, fill='red')
+        # print("Line created")
 
 if __name__ == "__main__":
     root = tk.Tk()
