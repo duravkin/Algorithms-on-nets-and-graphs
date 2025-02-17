@@ -89,7 +89,6 @@ class GraphApp:
                 self.canvas.coords(self.line, self.start_coords[0], self.start_coords[1],
                                      target_center[0], target_center[1])
                 self.edges[self.line] = (self.selected_node, target)
-                print("Edge created")
             else:
                 if self.line is not None:
                     self.canvas.delete(self.line)
@@ -217,7 +216,7 @@ class GraphApp:
         # self.bfs_button.config(bg="yellow", text="-BFS-")
         start_node = next(iter(self.nodes))
         order = self.bfs(start_node)
-        print("BFS order:", order)
+        # print("BFS order:", order)
         self.animate_order(order)
 
     def start_dfs(self):
@@ -230,7 +229,7 @@ class GraphApp:
         # self.dfs_button.config(bg="yellow", text="-DFS-")
         start_node = next(iter(self.nodes))
         order = self.dfs(start_node)
-        print("DFS order:", order)
+        # print("DFS order:", order)
         self.animate_order(order)
 
     def animate_order(self, order):
