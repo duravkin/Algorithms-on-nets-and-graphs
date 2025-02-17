@@ -8,14 +8,16 @@ class GraphApp:
 
         self.Radius = 15
         self.nodes = {}    # ключ – id овала, значение – кортеж ((x, y), id текста)
-        self.edges = {}    # ключ – id линии (ребра), значение – кортеж (id узла1, id узла2)
+        self.number_node = 1
+        self.edges = {}    # ключ – id линии, значение – кортеж (id узла1, id узла2)
         self.selected_node = None
         self.mode = 'N'    # 'N' – добавление узла, 'E' – добавление ребра
         self.start_coords = (None, None)
         self.line = None
 
-        # Флаг, указывающий, что анимация обхода запущена
+        # Флаг, указывающий, что запущена анимация обхода
         self.animating = False
+        self.current_traversal_type = None
 
         self.canvas.bind("<Button-1>", self.left_click)
         self.canvas.bind("<B1-Motion>", self.move_mouse)
@@ -23,7 +25,7 @@ class GraphApp:
         self.canvas.bind("<Button-3>", self.right_click)
         self.canvas.bind("<Double-Button-1>", self.double_click)
 
-        # Фрейм для кнопок обхода
+        # Фрейм для кнопок управления
         self.button_frame = tk.Frame(master)
         self.button_frame.pack(side=tk.BOTTOM, fill=tk.X)
 
@@ -33,16 +35,35 @@ class GraphApp:
         self.dfs_button = tk.Button(self.button_frame, text="DFS", command=self.start_dfs)
         self.dfs_button.pack(side=tk.LEFT, padx=10, pady=5)
 
+        self.reset_button = tk.Button(self.button_frame, text="Reset Colors", command=self.reset_colors)
+        self.reset_button.pack(side=tk.LEFT, padx=10, pady=5)
+
+        self.clear_button = tk.Button(self.button_frame, text="Clear Graph", command=self.clear_graph)
+        self.clear_button.pack(side=tk.LEFT, padx=10, pady=5)
+
+        # Сохраняем исходный цвет кнопок для сброса
+        self.default_bfs_button_color = self.bfs_button.cget("bg")
+        self.default_dfs_button_color = self.dfs_button.cget("bg")
+
     def check_node(self, x, y):
+        """
+        Возвращает id узла (овала), если в точке (x, y) найден соответствующий элемент.
+        Если клик произошёл по тексту, возвращается соответствующий овал.
+        """
         overlapping = self.canvas.find_overlapping(x - 1, y - 1, x + 1, y + 1)
         for item in overlapping:
             if item in self.nodes:
                 return item
+        # Если не найден овал, проверяем текстовые объекты
+        for item in overlapping:
+            for node, (center, text) in self.nodes.items():
+                if item == text:
+                    return node
         return None
 
     def left_click(self, event):
         if self.animating:
-            return  # блокируем создание/перемещение во время анимации
+            return  # запрещаем действия во время анимации
         x, y = event.x, event.y
         self.mode = 'N'
         self.add_node(x, y)
@@ -63,6 +84,10 @@ class GraphApp:
         if self.mode == 'E':
             target = self.check_node(x, y)
             if target is not None and target != self.selected_node:
+                # Устанавливаем конечную точку линии в центр целевого узла
+                target_center = self.nodes[target][0]
+                self.canvas.coords(self.line, self.start_coords[0], self.start_coords[1],
+                                     target_center[0], target_center[1])
                 self.edges[self.line] = (self.selected_node, target)
                 print("Edge created")
             else:
@@ -86,16 +111,17 @@ class GraphApp:
         if node is not None:
             self.selected_node = node
             self.mode = 'E'
-            self.start_coords = (x, y)
+            # Сохраняем центр узла как исходную точку для линии
+            self.start_coords = self.nodes[node][0]
 
     def add_node(self, x, y):
         R = self.Radius
         current_node = self.check_node(x, y)
         if current_node is None:
-            node = self.canvas.create_oval(
-                x - R, y - R, x + R, y + R, fill='blue')
-            text = self.canvas.create_text(
-                x, y, text=str(len(self.nodes) + 1), fill='white')
+            # Создаём новый узел: овал и текст
+            node = self.canvas.create_oval(x - R, y - R, x + R, y + R, fill='blue')
+            text = self.canvas.create_text(x, y, text=str(self.number_node), fill='white')
+            self.number_node += 1
             self.nodes[node] = ((x, y), text)
         else:
             self.selected_node = current_node
@@ -105,9 +131,9 @@ class GraphApp:
             R = self.Radius
             self.canvas.coords(self.selected_node, x - R, y - R, x + R, y + R)
             self.canvas.coords(self.nodes[self.selected_node][1], x, y)
-            # Обновляем координаты в словаре
+            # Обновляем координаты узла в словаре
             self.nodes[self.selected_node] = ((x, y), self.nodes[self.selected_node][1])
-            # Обновляем положение ребер, связанных с узлом
+            # Обновляем координаты для всех ребер, связанных с этим узлом
             for edge, (n1, n2) in self.edges.items():
                 x1, y1 = self.nodes[n1][0]
                 x2, y2 = self.nodes[n2][0]
@@ -130,14 +156,15 @@ class GraphApp:
             del self.nodes[node]
 
     def add_edge(self, x, y):
+        # Каждый раз удаляем предыдущую временную линию (если есть)
         if self.line is not None:
             self.canvas.delete(self.line)
             self.line = None
-        self.line = self.canvas.create_line(
-            self.start_coords[0], self.start_coords[1], x, y, fill='red')
+        # Рисуем временную линию от сохранённого центра (self.start_coords) до текущей позиции
+        self.line = self.canvas.create_line(self.start_coords[0], self.start_coords[1], x, y, fill='red')
 
     def build_graph(self):
-        """Строит представление графа в виде словаря смежности"""
+        """Строит представление графа в виде словаря смежности."""
         graph = {}
         for node in self.nodes:
             graph[node] = []
@@ -149,7 +176,7 @@ class GraphApp:
         return graph
 
     def bfs(self, start):
-        """Обход графа в ширину (BFS) с возвратом порядка посещения узлов"""
+        """Обход графа в ширину (BFS). Возвращает список узлов в порядке обхода."""
         graph = self.build_graph()
         visited = set()
         order = []
@@ -165,7 +192,7 @@ class GraphApp:
         return order
 
     def dfs(self, start):
-        """Обход графа в глубину (DFS) с возвратом порядка посещения узлов"""
+        """Обход графа в глубину (DFS). Возвращает список узлов в порядке обхода."""
         graph = self.build_graph()
         visited = set()
         order = []
@@ -184,7 +211,10 @@ class GraphApp:
         if self.animating or not self.nodes:
             return
         self.disable_buttons()
-        # Выбираем первый добавленный узел как стартовую точку
+        self.bfs_button.config(state=tk.NORMAL)
+        self.reset_colors()
+        self.current_traversal_type = "BFS"
+        # self.bfs_button.config(bg="yellow", text="-BFS-")
         start_node = next(iter(self.nodes))
         order = self.bfs(start_node)
         print("BFS order:", order)
@@ -194,21 +224,24 @@ class GraphApp:
         if self.animating or not self.nodes:
             return
         self.disable_buttons()
+        self.dfs_button.config(state=tk.NORMAL)
+        self.reset_colors()
+        self.current_traversal_type = "DFS"
+        # self.dfs_button.config(bg="yellow", text="-DFS-")
         start_node = next(iter(self.nodes))
         order = self.dfs(start_node)
         print("DFS order:", order)
         self.animate_order(order)
 
     def animate_order(self, order):
-        """Запускает анимацию обхода: узлы по очереди подсвечиваются оранжевым,
-        затем становятся зелёными."""
+        """Анимирует обход: узлы последовательно подсвечиваются оранжевым, затем становятся зелёными."""
         self.animating = True
         self.animation_order = order
         self.current_animation_index = 0
         self.animate_next_node()
 
     def animate_next_node(self):
-        # Если не первый узел, меняем цвет предыдущего на зеленый (посещённый)
+        # Если уже был подсвечен предыдущий узел, меняем его цвет на зеленый (посещённый)
         if self.current_animation_index > 0:
             prev_node = self.animation_order[self.current_animation_index - 1]
             self.canvas.itemconfig(prev_node, fill="green")
@@ -216,20 +249,46 @@ class GraphApp:
             current_node = self.animation_order[self.current_animation_index]
             self.canvas.itemconfig(current_node, fill="orange")
             self.current_animation_index += 1
-            # Задержка 500 мс перед подсветкой следующего узла
+            # Задержка 500 мс перед обработкой следующего узла
             self.master.after(500, self.animate_next_node)
         else:
             self.animating = False
             self.enable_buttons()
+            # Сброс цвета и текста активной кнопки обхода
+            if self.current_traversal_type == "BFS":
+                self.bfs_button.config(bg=self.default_bfs_button_color, text="BFS")
+            elif self.current_traversal_type == "DFS":
+                self.dfs_button.config(bg=self.default_dfs_button_color, text="DFS")
+            self.current_traversal_type = None
 
     def disable_buttons(self):
         self.bfs_button.config(state=tk.DISABLED)
         self.dfs_button.config(state=tk.DISABLED)
+        self.reset_button.config(state=tk.DISABLED)
+        self.clear_button.config(state=tk.DISABLED)
 
     def enable_buttons(self):
         self.bfs_button.config(state=tk.NORMAL)
         self.dfs_button.config(state=tk.NORMAL)
+        self.reset_button.config(state=tk.NORMAL)
+        self.clear_button.config(state=tk.NORMAL)
 
+    def reset_colors(self):
+        """Сбрасывает цвет всех узлов на синий."""
+        for node in self.nodes:
+            self.canvas.itemconfig(node, fill="blue")
+
+    def clear_graph(self):
+        """Удаляет все узлы и ребра с холста."""
+        # Удаляем все ребра
+        for edge in list(self.edges.keys()):
+            self.canvas.delete(edge)
+        self.edges.clear()
+        # Удаляем все узлы и связанные тексты
+        for node, (center, text) in list(self.nodes.items()):
+            self.canvas.delete(text)
+            self.canvas.delete(node)
+        self.nodes.clear()
 
 if __name__ == "__main__":
     root = tk.Tk()
