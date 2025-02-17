@@ -15,9 +15,10 @@ class GraphApp:
         self.start_coords = (None, None)
         self.line = None
 
-        # Флаг, указывающий, что запущена анимация обхода
+        # Флаги работы анимации и выбора стартовой вершины
         self.animating = False
         self.current_traversal_type = None
+        self.selecting_start = False
 
         self.canvas.bind("<Button-1>", self.left_click)
         self.canvas.bind("<B1-Motion>", self.move_mouse)
@@ -64,6 +65,10 @@ class GraphApp:
     def left_click(self, event):
         if self.animating:
             return  # запрещаем действия во время анимации
+        # Если находимся в режиме выбора стартовой вершины – вызываем соответствующий метод
+        if self.selecting_start:
+            self.select_start_vertex(event)
+            return
         x, y = event.x, event.y
         self.mode = 'N'
         self.add_node(x, y)
@@ -213,11 +218,9 @@ class GraphApp:
         self.bfs_button.config(state=tk.NORMAL)
         self.reset_colors()
         self.current_traversal_type = "BFS"
-        # self.bfs_button.config(bg="yellow", text="-BFS-")
-        start_node = next(iter(self.nodes))
-        order = self.bfs(start_node)
-        # print("BFS order:", order)
-        self.animate_order(order)
+        self.selecting_start = True
+        self.canvas.config(cursor="crosshair")
+        self.bfs_button.config(bg="yellow", text="Select start vertex")
 
     def start_dfs(self):
         if self.animating or not self.nodes:
@@ -226,11 +229,28 @@ class GraphApp:
         self.dfs_button.config(state=tk.NORMAL)
         self.reset_colors()
         self.current_traversal_type = "DFS"
-        # self.dfs_button.config(bg="yellow", text="-DFS-")
-        start_node = next(iter(self.nodes))
-        order = self.dfs(start_node)
-        # print("DFS order:", order)
-        self.animate_order(order)
+        self.selecting_start = True
+        self.canvas.config(cursor="crosshair")
+        self.dfs_button.config(bg="yellow", text="Select start vertex")
+
+    def select_start_vertex(self, event):
+        """Выбираем вершину для старта обхода при клике, когда включен режим выбора."""
+        x, y = event.x, event.y
+        node = self.check_node(x, y)
+        if node is None:
+            # Если клик по пустому месту – игнорируем
+            return
+        # Сбрасываем режим выбора стартовой вершины и восстанавливаем курсор
+        self.selecting_start = False
+        self.canvas.config(cursor="")
+        if self.current_traversal_type == "BFS":
+            self.bfs_button.config(bg="yellow", text="BFS (running)")
+            order = self.bfs(node)
+            self.animate_order(order)
+        elif self.current_traversal_type == "DFS":
+            self.dfs_button.config(bg="yellow", text="DFS (running)")
+            order = self.dfs(node)
+            self.animate_order(order)
 
     def animate_order(self, order):
         """Анимирует обход: узлы последовательно подсвечиваются оранжевым, затем становятся зелёными."""
