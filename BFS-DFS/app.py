@@ -1,5 +1,6 @@
 import tkinter as tk
 
+
 class GraphApp:
     def __init__(self, master):
         self.master = master
@@ -7,9 +8,11 @@ class GraphApp:
         self.canvas.pack()
 
         self.Radius = 15
-        self.nodes = {}    # ключ – id овала, значение – кортеж ((x, y), id текста)
+        # ключ – id овала, значение – кортеж ((x, y), id текста)
+        self.nodes = {}
         self.number_node = 1
-        self.edges = {}    # ключ – id линии, значение – кортеж (id узла1, id узла2)
+        # ключ – id линии, значение – кортеж (id узла1, id узла2)
+        self.edges = {}
         self.selected_node = None
         self.mode = 'N'    # 'N' – добавление узла, 'E' – добавление ребра
         self.start_coords = (None, None)
@@ -30,16 +33,20 @@ class GraphApp:
         self.button_frame = tk.Frame(master)
         self.button_frame.pack(side=tk.BOTTOM, fill=tk.X)
 
-        self.bfs_button = tk.Button(self.button_frame, text="BFS", command=self.start_bfs)
+        self.bfs_button = tk.Button(
+            self.button_frame, text="BFS", command=self.start_bfs)
         self.bfs_button.pack(side=tk.LEFT, padx=10, pady=5)
 
-        self.dfs_button = tk.Button(self.button_frame, text="DFS", command=self.start_dfs)
+        self.dfs_button = tk.Button(
+            self.button_frame, text="DFS", command=self.start_dfs)
         self.dfs_button.pack(side=tk.LEFT, padx=10, pady=5)
 
-        self.reset_button = tk.Button(self.button_frame, text="Reset Colors", command=self.reset_colors)
+        self.reset_button = tk.Button(
+            self.button_frame, text="Reset Colors", command=self.reset_colors)
         self.reset_button.pack(side=tk.LEFT, padx=10, pady=5)
 
-        self.clear_button = tk.Button(self.button_frame, text="Clear Graph", command=self.clear_graph)
+        self.clear_button = tk.Button(
+            self.button_frame, text="Clear Graph", command=self.clear_graph)
         self.clear_button.pack(side=tk.LEFT, padx=10, pady=5)
 
         # Сохраняем исходный цвет кнопок для сброса
@@ -92,7 +99,7 @@ class GraphApp:
                 # Устанавливаем конечную точку линии в центр целевого узла
                 target_center = self.nodes[target][0]
                 self.canvas.coords(self.line, self.start_coords[0], self.start_coords[1],
-                                     target_center[0], target_center[1])
+                                   target_center[0], target_center[1])
                 self.edges[self.line] = (self.selected_node, target)
             else:
                 if self.line is not None:
@@ -123,8 +130,10 @@ class GraphApp:
         current_node = self.check_node(x, y)
         if current_node is None:
             # Создаём новый узел: овал и текст
-            node = self.canvas.create_oval(x - R, y - R, x + R, y + R, fill='blue')
-            text = self.canvas.create_text(x, y, text=str(self.number_node), fill='white')
+            node = self.canvas.create_oval(
+                x - R, y - R, x + R, y + R, fill='blue')
+            text = self.canvas.create_text(
+                x, y, text=str(self.number_node), fill='white')
             self.number_node += 1
             self.nodes[node] = ((x, y), text)
         else:
@@ -136,7 +145,8 @@ class GraphApp:
             self.canvas.coords(self.selected_node, x - R, y - R, x + R, y + R)
             self.canvas.coords(self.nodes[self.selected_node][1], x, y)
             # Обновляем координаты узла в словаре
-            self.nodes[self.selected_node] = ((x, y), self.nodes[self.selected_node][1])
+            self.nodes[self.selected_node] = (
+                (x, y), self.nodes[self.selected_node][1])
             # Обновляем координаты для всех ребер, связанных с этим узлом
             for edge, (n1, n2) in self.edges.items():
                 x1, y1 = self.nodes[n1][0]
@@ -165,7 +175,8 @@ class GraphApp:
             self.canvas.delete(self.line)
             self.line = None
         # Рисуем временную линию от сохранённого центра (self.start_coords) до текущей позиции
-        self.line = self.canvas.create_line(self.start_coords[0], self.start_coords[1], x, y, fill='red')
+        self.line = self.canvas.create_line(
+            self.start_coords[0], self.start_coords[1], x, y, fill='red')
 
     def build_graph(self):
         """Строит представление графа в виде словаря смежности."""
@@ -275,9 +286,11 @@ class GraphApp:
             self.enable_buttons()
             # Сброс цвета и текста активной кнопки обхода
             if self.current_traversal_type == "BFS":
-                self.bfs_button.config(bg=self.default_bfs_button_color, text="BFS")
+                self.bfs_button.config(
+                    bg=self.default_bfs_button_color, text="BFS")
             elif self.current_traversal_type == "DFS":
-                self.dfs_button.config(bg=self.default_dfs_button_color, text="DFS")
+                self.dfs_button.config(
+                    bg=self.default_dfs_button_color, text="DFS")
             self.current_traversal_type = None
 
     def disable_buttons(self):
@@ -309,7 +322,9 @@ class GraphApp:
             self.canvas.delete(node)
         self.nodes.clear()
 
+
 if __name__ == "__main__":
     root = tk.Tk()
+    root.title("Graph traversal (BFS & DFS)")
     app = GraphApp(root)
     root.mainloop()
