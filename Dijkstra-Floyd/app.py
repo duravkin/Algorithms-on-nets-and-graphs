@@ -210,8 +210,9 @@ class GraphApp:
 
     def clear_graph(self):
         """Удаляет все узлы и ребра с холста."""
-        for edge_id in list(self.edges.keys()):
+        for edge_id, edge_data in list(self.edges.items()):
             self.canvas.delete(edge_id)
+            self.canvas.delete(edge_data[3])
         self.edges.clear()
         for node, (center, text) in list(self.nodes.items()):
             self.canvas.delete(text)
@@ -231,6 +232,7 @@ class GraphApp:
         if self.animating or not self.nodes:
             return
         self.disable_buttons()
+        self.dijkstra_button.config(state=tk.NORMAL)
         self.reset_colors()
         self.current_algorithm = "dijkstra"
         self.selecting_path = True
@@ -245,6 +247,7 @@ class GraphApp:
         if self.animating or not self.nodes:
             return
         self.disable_buttons()
+        self.floyd_button.config(state=tk.NORMAL)
         self.reset_colors()
         self.current_algorithm = "floyd"
         self.selecting_path = True
