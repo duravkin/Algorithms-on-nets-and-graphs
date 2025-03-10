@@ -182,8 +182,9 @@ class GraphApp:
         self.line = self.canvas.create_line(self.start_coords[0], self.start_coords[1], x, y, fill='red')
 
     def clear_graph(self):
-        for edge_id in list(self.edges.keys()):
+        for edge_id, items in list(self.edges.items()):
             self.canvas.delete(edge_id)
+            self.canvas.delete(items[3])
         self.edges.clear()
         for node, (center, text) in list(self.nodes.items()):
             self.canvas.delete(text)
