@@ -121,9 +121,16 @@ class GraphApp:
 
     def move_node(self, x, y):
         if self.selected_node is not None:
+            if self.selected_node not in self.nodes:
+                self.selected_node = None
+                return
+                
             R = self.Radius
             self.canvas.coords(self.selected_node, x - R, y - R, x + R, y + R)
             self.canvas.coords(self.nodes[self.selected_node][1], x, y)
+            if self.selected_node in self.order_labels:
+                label_id = self.order_labels[self.selected_node]
+                self.canvas.coords(label_id, x, y + 30)
             self.nodes[self.selected_node] = (
                 (x, y), self.nodes[self.selected_node][1])
             for edge, (n1, n2) in self.edges.items():
@@ -134,6 +141,9 @@ class GraphApp:
     def delete_node(self, x, y):
         node = self.check_node(x, y)
         if node in self.nodes:
+            if node in self.order_labels:
+                label_id = self.order_labels.pop(node)
+                self.canvas.delete(label_id)
             edges_to_delete = []
             for edge, (n1, n2) in list(self.edges.items()):
                 if n1 == node or n2 == node:
@@ -217,10 +227,16 @@ class GraphApp:
             
         if self.current_animation_index < len(self.animation_order):
             current_node = self.animation_order[self.current_animation_index]
+            if current_node not in self.nodes:
+                self.animating = False
+                self.enable_buttons()
+                return
+                
             self.canvas.itemconfig(current_node, fill="orange")
             
-            # Добавляем номер порядка
             x, y = self.nodes[current_node][0]
+            if current_node in self.order_labels:
+                self.canvas.delete(self.order_labels[current_node])
             label = self.canvas.create_text(
                 x, y + 30,
                 text=str(self.current_animation_index + 1),
