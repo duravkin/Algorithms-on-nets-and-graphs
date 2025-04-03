@@ -80,20 +80,34 @@ class GraphApp:
             target = self.check_node(x, y)
             if target is not None and target != self.selected_node:
                 target_center = self.nodes[target][0]
-                self.canvas.coords(self.line, self.start_coords[0], self.start_coords[1],
-                                   target_center[0], target_center[1])
+                self.canvas.coords(
+                    self.line, 
+                    self.start_coords[0], self.start_coords[1],
+                    target_center[0], target_center[1]
+                )
                 
-                capacity = simpledialog.askinteger("Capacity", "Enter edge capacity:", 
-                                                  parent=self.master, minvalue=0)
+                capacity = simpledialog.askinteger(
+                    "Capacity", "Enter edge capacity:",
+                    parent=self.master, 
+                    minvalue=0, 
+                    initialvalue=1
+                )
+                
                 if capacity is None:
-                    capacity = 0
-
-                x1, y1 = self.start_coords
-                x2, y2 = target_center
-                text_x = (x1 + x2) // 2
-                text_y = (y1 + y2) // 2
-                text_id = self.canvas.create_text(text_x, text_y, text=f"0/{capacity}", 
-                                                  fill="black", font=("Arial", 10))
+                    self.canvas.delete(self.line)
+                    self.mode = 'N'
+                    self.selected_node = None
+                    self.line = None
+                    return
+                
+                text_x = (self.start_coords[0] + target_center[0]) // 2
+                text_y = (self.start_coords[1] + target_center[1]) // 2
+                text_id = self.canvas.create_text(
+                    text_x, text_y,
+                    text=f"0/{capacity}",
+                    fill="black",
+                    font=("Arial", 10)
+                )
                 
                 self.edges[self.line] = {
                     'from': self.selected_node,
