@@ -18,6 +18,17 @@ class GraphApp:
         self.start_coords = (None, None)
         self.line = None
         self.animating = False
+        self.source = None
+        self.sink = None
+
+        # Цвета состояний
+        self.colors = {
+            'default': 'blue',
+            'source': '#008000',
+            'sink': '#800000',
+            'active_edge': '#008b8b',
+            'final_edge': '#0000ff'
+        }
 
         self.canvas.bind("<Button-1>", self.left_click)
         self.canvas.bind("<B1-Motion>", self.move_mouse)
@@ -29,7 +40,7 @@ class GraphApp:
         self.button_frame.pack(side=tk.BOTTOM, fill=tk.X)
 
         self.max_flow_button = tk.Button(
-            self.button_frame, text="Max Flow", command=self.start_max_flow)
+            self.button_frame, text="Max Flow", command=self.init_max_flow)
         self.max_flow_button.pack(side=tk.LEFT, padx=10, pady=5)
 
         self.reset_button = tk.Button(
@@ -44,9 +55,11 @@ class GraphApp:
         self.animation_steps = []
         self.current_animation_step = 0
         self.current_path_edges = []
+        self.selection_phase = None  # 'source_selection', 'sink_selection'
 
     def check_node(self, x, y):
-        overlapping = self.canvas.find_overlapping(x - 1, y - 1, x + 1, y + 1)
+        overlapping = self.canvas.find_overlapping(
+            x - 5, y - 5, x + 5, y + 5)
         for item in overlapping:
             if item in self.nodes:
                 return item
@@ -59,12 +72,47 @@ class GraphApp:
     def left_click(self, event):
         if self.animating:
             return
+            
+        if self.selection_phase:
+            self.handle_selection(event.x, event.y)
+            return
+
         x, y = event.x, event.y
         self.mode = 'N'
         self.add_node(x, y)
 
+    def handle_selection(self, x, y):
+        node = self.check_node(x, y)
+        if node is None:
+            return
+
+        if self.selection_phase == 'source_selection':
+            self.select_source(node)
+        elif self.selection_phase == 'sink_selection':
+            self.select_sink(node)
+
+    def select_source(self, node):
+        if self.source:
+            self.canvas.itemconfig(self.source, fill=self.colors['default'])
+        self.source = node
+        self.canvas.itemconfig(node, fill=self.colors['source'])
+        self.selection_phase = 'sink_selection'
+        self.max_flow_button.config(bg="yellow", text="Click on sink node")
+        # messagebox.showinfo("Select Sink", "Click on sink node")
+
+    def select_sink(self, node):
+        if node == self.source:
+            messagebox.showerror("Error", "Sink cannot be same as source")
+            return
+        if self.sink:
+            self.canvas.itemconfig(self.sink, fill=self.colors['default'])
+        self.sink = node
+        self.canvas.itemconfig(node, fill=self.colors['sink'])
+        self.selection_phase = None
+        self.prepare_max_flow_animation()
+
     def move_mouse(self, event):
-        if self.animating:
+        if self.animating or self.selection_phase:
             return
         x, y = event.x, event.y
         if self.mode == 'N':
@@ -73,18 +121,15 @@ class GraphApp:
             self.add_edge(x, y)
 
     def release_mouse(self, event):
-        if self.animating:
+        if self.animating or self.selection_phase:
             return
         x, y = event.x, event.y
         if self.mode == 'E':
             target = self.check_node(x, y)
             if target is not None and target != self.selected_node:
                 target_center = self.nodes[target][0]
-                self.canvas.coords(
-                    self.line, 
-                    self.start_coords[0], self.start_coords[1],
-                    target_center[0], target_center[1]
-                )
+                self.canvas.coords(self.line, self.start_coords[0], self.start_coords[1],
+                                   target_center[0], target_center[1])
                 
                 capacity = simpledialog.askinteger(
                     "Capacity", "Enter edge capacity:",
@@ -106,8 +151,7 @@ class GraphApp:
                     text_x, text_y,
                     text=f"0/{capacity}",
                     fill="black",
-                    font=("Arial", 10)
-                )
+                    font=("Arial", 10))
                 
                 self.edges[self.line] = {
                     'from': self.selected_node,
@@ -120,18 +164,19 @@ class GraphApp:
             else:
                 if self.line is not None:
                     self.canvas.delete(self.line)
+            
             self.mode = 'N'
             self.selected_node = None
             self.line = None
 
     def right_click(self, event):
-        if self.animating:
+        if self.animating or self.selection_phase:
             return
         x, y = event.x, event.y
         self.delete_node(x, y)
 
     def double_click(self, event):
-        if self.animating:
+        if self.animating or self.selection_phase:
             return
         x, y = event.x, event.y
         node = self.check_node(x, y)
@@ -145,7 +190,7 @@ class GraphApp:
         current_node = self.check_node(x, y)
         if current_node is None:
             node = self.canvas.create_oval(
-                x - R, y - R, x + R, y + R, fill='blue')
+                x - R, y - R, x + R, y + R, fill=self.colors['default'])
             text = self.canvas.create_text(
                 x, y, text=str(self.number_node), fill='white')
             self.number_node += 1
@@ -193,34 +238,17 @@ class GraphApp:
         self.line = self.canvas.create_line(
             self.start_coords[0], self.start_coords[1], x, y, fill='red', arrow=tk.LAST)
 
-    def start_max_flow(self):
+    def init_max_flow(self):
         if self.animating or not self.nodes:
             return
-        
-        source_num = simpledialog.askinteger("Source", "Enter source node number:", 
-                                            parent=self.master, minvalue=1)
-        if source_num is None: return
-        
-        sink_num = simpledialog.askinteger("Sink", "Enter sink node number:", 
-                                          parent=self.master, minvalue=1)
-        if sink_num is None: return
 
-        source_node = None
-        sink_node = None
-        for node_id, (coords, text_id) in self.nodes.items():
-            node_num = int(self.canvas.itemcget(text_id, 'text'))
-            if node_num == source_num:
-                source_node = node_id
-            if node_num == sink_num:
-                sink_node = node_id
+        self.reset_colors()
+        self.selection_phase = 'source_selection'
+        self.max_flow_button.config(state=tk.DISABLED)
+        self.max_flow_button.config(bg="yellow", text="Click on source node")
+        # messagebox.showinfo("Select Source", "Click on source node")
 
-        if not source_node or not sink_node:
-            messagebox.showerror("Error", "Invalid source or sink node")
-            return
-
-        self.prepare_max_flow_animation(source_node, sink_node)
-
-    def prepare_max_flow_animation(self, source, sink):
+    def prepare_max_flow_animation(self):
         edges_data = []
         node_ids = list(self.nodes.keys())
         for edge_info in self.edges.values():
@@ -248,9 +276,9 @@ class GraphApp:
         self.animation_steps = []
         while True:
             queue = deque()
-            queue.append(source)
+            queue.append(self.source)
             parent = {node: None for node in node_ids}
-            parent[source] = -1
+            parent[self.source] = -1
 
             found = False
             while queue and not found:
@@ -258,7 +286,7 @@ class GraphApp:
                 for v in residual[u]:
                     if parent[v] is None and residual[u][v] > 0:
                         parent[v] = u
-                        if v == sink:
+                        if v == self.sink:
                             found = True
                             break
                         queue.append(v)
@@ -267,9 +295,9 @@ class GraphApp:
                 break
 
             path_flow = float('inf')
-            v = sink
+            v = self.sink
             path = []
-            while v != source:
+            while v != self.source:
                 u = parent[v]
                 path_flow = min(path_flow, residual[u][v])
                 path.insert(0, (u, v))
@@ -277,8 +305,8 @@ class GraphApp:
 
             self.animation_steps.append(('path', path.copy(), path_flow))
 
-            v = sink
-            while v != source:
+            v = self.sink
+            while v != self.source:
                 u = parent[v]
                 residual[u][v] -= path_flow
                 residual[v][u] += path_flow
@@ -314,6 +342,7 @@ class GraphApp:
             self.animating = False
             self.max_flow_button.config(bg=self.default_button_color, text="Max Flow")
             self.enable_buttons()
+            self.finalize_animation()
             return
 
         step = self.animation_steps[self.current_animation_step]
@@ -334,21 +363,38 @@ class GraphApp:
             self.master.after(500, self.animate_max_flow_step)
         elif step[0] == 'done':
             messagebox.showinfo("Max Flow", f"Maximum flow: {step[1]}")
-            self.reset_edge_colors()
             self.animating = False
             self.max_flow_button.config(bg=self.default_button_color, text="Max Flow")
             self.enable_buttons()
 
+    def finalize_animation(self):
+        for edge_id, edge_info in self.edges.items():
+            if edge_info['flow'] > 0:
+                self.canvas.itemconfig(edge_id, fill=self.colors['final_edge'], width=2)
+
     def highlight_edge(self, u, v):
         for edge_id, edge_info in self.edges.items():
             if edge_info['from'] == u and edge_info['to'] == v:
-                self.canvas.itemconfig(edge_id, fill="green", width=2)
+                self.canvas.itemconfig(edge_id, fill=self.colors['active_edge'], width=2)
             elif edge_info['from'] == v and edge_info['to'] == u:
-                self.canvas.itemconfig(edge_id, fill="red", width=2)
+                self.canvas.itemconfig(edge_id, fill="#ff6666", width=2)
 
-    def reset_edge_colors(self):
-        for edge_id in self.edges:
+    def reset_colors(self):
+        for node in self.nodes:
+            self.canvas.itemconfig(node, fill=self.colors['default'])
+        
+        for edge_id, edge_info in self.edges.items():
             self.canvas.itemconfig(edge_id, fill="black", width=1)
+            edge_info['flow'] = 0
+            self.canvas.itemconfig(edge_info['text_id'], 
+                                 text=f"0/{edge_info['capacity']}")
+        
+        if self.source:
+            self.canvas.itemconfig(self.source, fill=self.colors['default'])
+        if self.sink:
+            self.canvas.itemconfig(self.sink, fill=self.colors['default'])
+        self.source = None
+        self.sink = None
 
     def disable_buttons(self):
         self.max_flow_button.config(state=tk.DISABLED)
@@ -360,12 +406,8 @@ class GraphApp:
         self.reset_button.config(state=tk.NORMAL)
         self.clear_button.config(state=tk.NORMAL)
 
-    def reset_colors(self):
-        for node in self.nodes:
-            self.canvas.itemconfig(node, fill="blue")
-        self.reset_edge_colors()
-
     def clear_graph(self):
+        self.reset_colors()
         for edge in list(self.edges.keys()):
             self.canvas.delete(self.edges[edge]['text_id'])
             self.canvas.delete(edge)
@@ -375,6 +417,8 @@ class GraphApp:
             self.canvas.delete(node)
         self.nodes.clear()
         self.number_node = 1
+        self.source = None
+        self.sink = None
 
 
 if __name__ == "__main__":
